@@ -52,8 +52,6 @@ class item_similarity_recommender_py():
         self.item_id = None
         self.cooccurence_matrix = None
         self.all_data = None
-        # self.songs_dict = None
-        # self.rev_songs_dict = None
         self.item_similarity_recommendations = None
         
     #Get unique items (songs) corresponding to a given user
@@ -91,7 +89,7 @@ class item_similarity_recommender_py():
         #len(user_songs) X len(songs)
         ###############################################
         cooccurence_matrix = np.matrix(np.zeros(shape=(len(user_songs), len(all_songs))), float)
-           
+
         #############################################################
         #Calculate similarity between user songs and all unique songs
         #in the training data
@@ -105,7 +103,7 @@ class item_similarity_recommender_py():
                     
                 #Get unique listeners (users) of song (item) j
                 users_j = user_songs_users[j]
-                    
+
                 #Calculate intersection of listeners of songs i and j
                 users_intersection = users_i.intersection(users_j)
                 
@@ -117,8 +115,7 @@ class item_similarity_recommender_py():
                     cooccurence_matrix[j,i] = float(len(users_intersection))/float(len(users_union))
                 else:
                     cooccurence_matrix[j,i] = 0
-                    
-        
+
         return cooccurence_matrix
 
     

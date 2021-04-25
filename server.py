@@ -39,7 +39,7 @@ def initializeVariables():
   merged_tmp = pandas.merge(ratings_tmp, songs_tmp)
 
   merged_tmp['song'] = merged_tmp['track_name'].map(str) + " - " + merged_tmp['track_artist']
-  merged_subset_tmp = merged_tmp.sample(n = 10000)
+  merged_subset_tmp = merged_tmp.sample(n = 3000)
   # merged_subset_tmp = merged_tmp.head(15000)
 
   is_model_tmp = Recommenders.item_similarity_recommender_py()
@@ -77,7 +77,6 @@ def get_song(track_id):
   cursor.execute("SELECT * FROM music_data WHERE track_id = %s", (track_id,))
   song = cursor.fetchone()
   
-  print('### Song Details: ', song)
   return jsonify(song)
 
 @app.route('/top/songs', methods=['GET'])
@@ -130,10 +129,6 @@ def get_user_recommendations(user_id):
 
   if isinstance(recommendations, pandas.DataFrame) == False:
     recommendations = pandas.DataFrame()
-
-  # Get all user songs from original observations df
-  # Map it to all songs in the subset dataframe
-  # This might solve problem where we are not getting any songs for current user.
 
   return recommendations.to_json(orient='records')
 

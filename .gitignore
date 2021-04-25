@@ -1,5 +1,8 @@
 observations.csv
 spotify_songs.csv
-script1.sql
+songs_1.csv
+
+script*.sql
+
 recommender-system/
 __pycache__/

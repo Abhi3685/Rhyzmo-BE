@@ -8,6 +8,7 @@ import numpy
 import json
 import Recommenders as Recommenders
 from flask_apscheduler import APScheduler
+import random
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -37,11 +38,12 @@ def initializeVariables():
   ratings_tmp = pandas.read_sql_table('observations', engine)
   merged_tmp = pandas.merge(ratings_tmp, songs_tmp)
 
+  merged_tmp['song'] = merged_tmp['track_name'].map(str) + " - " + merged_tmp['track_artist']
   merged_subset_tmp = merged_tmp.sample(n = 10000)
-  merged_subset_tmp['song'] = merged_subset_tmp['track_name'].map(str) + " - " + merged_subset_tmp['track_artist']
+  # merged_subset_tmp = merged_tmp.head(15000)
 
   is_model_tmp = Recommenders.item_similarity_recommender_py()
-  is_model_tmp.create(merged_subset_tmp, 'user_id', 'song')
+  is_model_tmp.create(merged_subset_tmp, 'user_id', 'song', merged_tmp)
 
   global songs
   songs = songs_tmp
@@ -57,8 +59,17 @@ def initializeVariables():
   return
 
 initializeVariables()
-scheduler.add_job(id = 'Scheduled Task', func = initializeVariables, trigger = 'interval', seconds = 30)
+timeForScheduler = 2*60*60 # 2 hours
+scheduler.add_job(id = 'Scheduled Task', func = initializeVariables, trigger = 'interval', seconds = timeForScheduler)
 scheduler.start()
+
+@app.route('/genre/<genre_name>', methods=['GET'])
+def get_genre_songs(genre_name):
+  return songs.loc[songs['playlist_genre'] == genre_name].sort_values(by='track_popularity', ascending=False).head(50).to_json(orient='records')
+
+@app.route('/artist/<artist_name>', methods=['GET'])
+def get_artist_songs(artist_name):
+  return songs.loc[songs['track_artist'] == artist_name].sort_values(by='track_popularity', ascending=False).head(50).to_json(orient='records')
 
 @app.route('/song/<track_id>', methods=['GET'])
 def get_song(track_id):
@@ -91,7 +102,7 @@ def get_top_10_artists():
   top_10_artists = sorted_artists[:10]
   top_10_artists_play_counts = sorted_count_for_artists[:10]
   
-  return jsonify(top_10_artists)
+  return songs.loc[songs['track_artist'].isin(top_10_artists), ['track_artist', 'artist_image']].drop_duplicates(subset = "track_artist").to_json(orient='records')
 
 @app.route('/genres', methods=['GET'])
 def get_genres():
@@ -101,14 +112,14 @@ def get_genres():
 
 @app.route('/recommend/<user_id>', methods=['GET'])
 def get_user_recommendations(user_id):
-  user_items = is_model.get_user_items(user_id)
+  # user_items = is_model.get_user_items(user_id)
 
-  print("------------------------------------------------------------------------------------")
-  print("Training data songs for the user:")
-  print("------------------------------------------------------------------------------------")
+  # print("------------------------------------------------------------------------------------")
+  # print("Training data songs for the user:")
+  # print("------------------------------------------------------------------------------------")
 
-  for user_item in user_items:
-    print(user_item)
+  # for user_item in user_items:
+  #   print(user_item)
 
   print("----------------------------------------------------------------------")
   print("Recommendation process going on:")
@@ -116,6 +127,13 @@ def get_user_recommendations(user_id):
 
   #Recommend songs for the user using personalized model
   recommendations = is_model.recommend(user_id)
+
+  if isinstance(recommendations, pandas.DataFrame) == False:
+    recommendations = pandas.DataFrame()
+
+  # Get all user songs from original observations df
+  # Map it to all songs in the subset dataframe
+  # This might solve problem where we are not getting any songs for current user.
 
   return recommendations.to_json(orient='records')
 

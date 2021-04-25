@@ -51,22 +51,23 @@ class item_similarity_recommender_py():
         self.user_id = None
         self.item_id = None
         self.cooccurence_matrix = None
-        self.songs_dict = None
-        self.rev_songs_dict = None
+        self.all_data = None
+        # self.songs_dict = None
+        # self.rev_songs_dict = None
         self.item_similarity_recommendations = None
         
     #Get unique items (songs) corresponding to a given user
     def get_user_items(self, user):
-        user_data = self.train_data[self.train_data[self.user_id] == user]
+        user_data = self.all_data[self.all_data[self.user_id] == user]
         user_items = list(user_data[self.item_id].unique())
-        
+
         return user_items
         
     #Get unique users for a given item (song)
     def get_item_users(self, item):
         item_data = self.train_data[self.train_data[self.item_id] == item]
         item_users = set(item_data[self.user_id].unique())
-            
+
         return item_users
         
     #Get unique items (songs) in the training data
@@ -153,10 +154,11 @@ class item_similarity_recommender_py():
             return df
  
     #Create the item similarity based recommender system model
-    def create(self, train_data, user_id, item_id):
+    def create(self, train_data, user_id, item_id, all_data):
         self.train_data = train_data
         self.user_id = user_id
         self.item_id = item_id
+        self.all_data = all_data
 
     #Use the item similarity based recommender system model to
     #make recommendations

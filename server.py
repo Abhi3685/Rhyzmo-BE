@@ -15,13 +15,20 @@ app.config["DEBUG"] = True
 
 scheduler = APScheduler()
 
-engine = sqlalchemy.create_engine('mysql://root:test@123@localhost:3306/songs')
+# app.secret_key = 'my secret key'
+# app.config['MYSQL_HOST'] = 'db4free.net'
+# app.config['MYSQL_USER'] = 'rhyzmo'
+# app.config['MYSQL_PASSWORD'] = 'test@123'
+# app.config['MYSQL_DB'] = 'major_pjct_songs'
 
 app.secret_key = 'my secret key'
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'test@123'
 app.config['MYSQL_DB'] = 'songs'
+
+engine = sqlalchemy.create_engine('mysql://' + app.config['MYSQL_USER'] + ':' + app.config['MYSQL_PASSWORD'] + '@' + 
+                                  app.config['MYSQL_HOST'] + ':3306/' + app.config['MYSQL_DB'])
 
 mysql = MySQL(app)
 pandas.options.mode.chained_assignment = None
@@ -65,11 +72,19 @@ scheduler.start()
 
 @app.route('/genre/<genre_name>', methods=['GET'])
 def get_genre_songs(genre_name):
-  return songs.loc[songs['playlist_genre'] == genre_name].sort_values(by='track_popularity', ascending=False).head(50).to_json(orient='records')
+  return songs.loc[songs['playlist_genre'] == genre_name].sort_values(by='track_popularity', ascending=False).head(30).to_json(orient='records')
+
+@app.route('/lang/<lang_code>', methods=['GET'])
+def get_lang_songs(lang_code):
+  return songs.loc[songs['language'] == lang_code].sort_values(by='track_popularity', ascending=False).head(30).to_json(orient='records')
 
 @app.route('/artist/<artist_name>', methods=['GET'])
 def get_artist_songs(artist_name):
-  return songs.loc[songs['track_artist'] == artist_name].sort_values(by='track_popularity', ascending=False).head(50).to_json(orient='records')
+  return songs.loc[songs['track_artist'] == artist_name].sort_values(by='track_popularity', ascending=False).head(30).to_json(orient='records')
+
+@app.route('/playlist/<playlist_name>', methods=['GET'])
+def get_playlist_songs(playlist_name):
+  return songs.loc[songs['playlist_name'] == playlist_name].sort_values(by='track_popularity', ascending=False).head(30).to_json(orient='records')
 
 @app.route('/song/<track_id>', methods=['GET'])
 def get_song(track_id):
@@ -78,6 +93,9 @@ def get_song(track_id):
   song = cursor.fetchone()
   
   return jsonify(song)
+
+def get_song_with_name(song):
+  return merged.loc[merged['song'] == song].head(1)
 
 @app.route('/top/songs', methods=['GET'])
 def get_top_10_songs():
@@ -102,6 +120,19 @@ def get_top_10_artists():
   top_10_artists_play_counts = sorted_count_for_artists[:10]
   
   return songs.loc[songs['track_artist'].isin(top_10_artists), ['track_artist', 'artist_image']].drop_duplicates(subset = "track_artist").to_json(orient='records')
+
+@app.route('/top/playlists', methods=['GET'])
+def get_top_10_playlists():
+  unique_playlist = merged['playlist_name'].unique()
+  listen_counts_for_playlists = merged.groupby(['playlist_name']).sum()['listen_count'].to_numpy()
+  sorted_playlists = pandas.Series(data=unique_playlist,index=listen_counts_for_playlists).sort_index(ascending = False).tolist()
+  sorted_count_for_playlists = -numpy.sort(-listen_counts_for_playlists)
+
+  top_10_playlists = sorted_playlists[:10]
+  top_10_playlist_play_counts = sorted_count_for_playlists[:10]
+  
+  return songs.loc[songs['playlist_name'].isin(top_10_playlists), ['playlist_name', 'artist_image']].drop_duplicates(subset = "playlist_name").to_json(orient='records')
+
 
 @app.route('/genres', methods=['GET'])
 def get_genres():
@@ -130,7 +161,11 @@ def get_user_recommendations(user_id):
   if isinstance(recommendations, pandas.DataFrame) == False:
     recommendations = pandas.DataFrame()
 
-  return recommendations.to_json(orient='records')
+  result = pandas.DataFrame()
+  for index, row in recommendations.iterrows():
+    result = result.append(get_song_with_name(row['song']))
+
+  return result.to_json(orient='records')
 
 @app.route('/recommend/song/<track_name>', methods=['GET'])
 def get_song_recommendations(track_name):
@@ -139,7 +174,14 @@ def get_song_recommendations(track_name):
   # track_name = "I Feel Alive - Steady Rollin"
   recommendations = is_model.get_similar_items([track_name])
 
-  return recommendations.to_json(orient='records')
+  if isinstance(recommendations, pandas.DataFrame) == False:
+    recommendations = pandas.DataFrame()
+
+  result = pandas.DataFrame()
+  for index, row in recommendations.iterrows():
+    result = result.append(get_song_with_name(row['song']))
+
+  return result.to_json(orient='records')
 
 @app.route('/', methods=['GET'])
 def home():
